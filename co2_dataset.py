@@ -20,11 +20,11 @@ def main(args):
     detrended = signal.detrend(co2_data['standard_no_missing'][200:600])
     detrended /= np.max(detrended)
 
-    if args.plot:
-        plt.plot(detrended)
-        plt.axvline(x=300, c='black', lw='1')
-        plt.ylim([-20,20])
-        plt.xlim([0,500])
+    #if args.plot:
+    #    plt.plot(detrended)
+    #    plt.axvline(x=300, c='black', lw='1')
+    #    plt.ylim([-20,20])
+    #    plt.xlim([0,500])
 
     # # Training setup
 
@@ -119,7 +119,7 @@ def main(args):
 
     trainset_size = len(detrended)
 
-    x = np.arange(trainset_size)
+    x = np.linspace(-2,2,trainset_size)
     y = detrended
 
 
@@ -215,6 +215,7 @@ def main(args):
             plt.fill_between(target, predictive_mean-2*np.sqrt(predictive_variance), predictive_mean+2*np.sqrt(predictive_variance),
                 alpha=0.5, edgecolor='#CC4F1B', facecolor='#FF9848', linewidth=0, label='variance')
             plt.plot(target,detrended,label='target', color='blue',alpha=0.5)
+            plt.ylim([-20,20])
             plt.legend(loc='upper right')
 
 
@@ -277,7 +278,7 @@ def main(args):
             plt.axvline(x=300, c='black', lw='1')
 
             plt.legend(loc='upper left', bbox_to_anchor=(1.025, 1.025))
-            #plt.ylim([-30, 30])
+            plt.ylim([-20,20])
             plt.xlim([0,500])
     
         sim.close()
