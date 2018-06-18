@@ -19,6 +19,7 @@ def main(args):
 
     detrended = signal.detrend(co2_data['standard_no_missing'][200:600])
     detrended /= np.max(detrended)
+    detrended *= 2
 
     #if args.plot:
     #    plt.plot(detrended)
@@ -107,6 +108,8 @@ def main(args):
             # add an output layer
             a = nengo_dl.TensorNode(DenseLayer(), size_in=shape_in, size_out=output_size)
             nengo.Connection(x, a)
+
+            tf.train.get_or_create_global_step()
             
         return net, inp, a
 
@@ -143,16 +146,6 @@ def main(args):
     test_x = {inp: target[300:]}
     test_y = {out_p: y[300:,None,None]}
 
-    # define optimiser  
-    if args.optimizer=='rmsprop':
-        opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
-    elif args.optimizer=='sgd':
-        opt = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=momentum, use_nesterov=True)
-    elif args.optimizer=='adadelta':
-        opt = tf.train.AdadeltaOptimizer(learning_rate=learning_rate)
-    elif args.optimizer=='adam':
-        opt = tf.train.AdamOptimizer(learning_rate=learning_rate)
-
     # construct the simulator
     with nengo_dl.Simulator(net, minibatch_size=minibatch_size, tensorboard='./tensorboard') as sim:
         #, tensorboard='./tensorboard')
@@ -179,7 +172,26 @@ def main(args):
                         else:
                             sum_weights += tf.linalg.norm(node.tensor_func.W)
         weight_summary = tf.summary.scalar('sum_weights', sum_weights)        
+
+        init = tf.initialize_all_variables()
+        sim.sess.run(init)
+
+        global_step = tf.train.get_or_create_global_step()
+        starter_learning_rate = args.learning_rate
+        learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
+                                           10000, 0.96, staircase=False)
         
+            # define optimiser  
+        if args.optimizer=='rmsprop':
+            opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
+        elif args.optimizer=='sgd':
+            opt = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum=momentum, use_nesterov=True)
+        elif args.optimizer=='adadelta':
+            opt = tf.train.AdadeltaOptimizer(learning_rate=learning_rate)
+        elif args.optimizer=='adam':
+            opt = tf.train.AdamOptimizer(learning_rate=learning_rate)
+
+        loss = 0
         # actual training loop
         if do_train:
             if continue_training:
@@ -215,6 +227,7 @@ def main(args):
             plt.fill_between(target, predictive_mean-2*np.sqrt(predictive_variance), predictive_mean+2*np.sqrt(predictive_variance),
                 alpha=0.5, edgecolor='#CC4F1B', facecolor='#FF9848', linewidth=0, label='variance')
             plt.plot(target,detrended,label='target', color='blue',alpha=0.5)
+            plt.axvline(x=x[300], c='black', lw='1')
             plt.ylim([-20,20])
             plt.legend(loc='upper right')
 
@@ -257,9 +270,9 @@ def main(args):
             #plt.plot(target.flatten(), y(target).flatten(), label="target", linewidth=2.0)
             plt.legend(loc='upper left', bbox_to_anchor=(1.025, 1.025));
             plt.plot(detrended, label='train set')
-            plt.axvline(x=300, c='black', lw='1')
-            #plt.ylim([-20,20])
-            plt.xlim([0,500]);
+            plt.axvline(x=x[300], c='black', lw='1')
+            plt.ylim([-20,20])
+            #plt.xlim([0,500]);
 
 
             # print(sim.data[out_p].shape)
@@ -279,7 +292,8 @@ def main(args):
 
             plt.legend(loc='upper left', bbox_to_anchor=(1.025, 1.025))
             plt.ylim([-20,20])
-            plt.xlim([0,500])
+            plt.axvline(x=x[300], c='black', lw='1')
+            #plt.xlim([0,500])
     
         sim.close()
     if args.plot:
