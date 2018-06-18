@@ -173,14 +173,16 @@ def main(args):
                             sum_weights += tf.linalg.norm(node.tensor_func.W)
         weight_summary = tf.summary.scalar('sum_weights', sum_weights)        
 
-        init = tf.initialize_all_variables()
-        sim.sess.run(init)
+
 
         global_step = tf.train.get_or_create_global_step()
         starter_learning_rate = args.learning_rate
         learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
                                            10000, 0.96, staircase=False)
         
+        init = tf.variables_initializer([global_step], name='init')
+        sim.sess.run(init)
+
             # define optimiser  
         if args.optimizer=='rmsprop':
             opt = tf.train.RMSPropOptimizer(learning_rate=learning_rate)
