@@ -14,7 +14,7 @@ mc_samples        = 20
 optimizer         = 'rmsprop'
 learning_rate     = 1e-2
 momentum          = 0.9
-l2_weight         = 5e-8
+l2_weight         = 5e-7
 drop_p            = 0.15
 tau_rc            = 0.07
 tau_ref           = 0.0005
@@ -38,4 +38,4 @@ print('########################')
 
 start = time.time()
 loss = co2_dataset.main(args)
-print("The training took {:.1f} minutes with a loss of {:.3f}".format((time.time()-start)/60), loss) # measure time
+print("The training took {:.1f} minutes with a loss of {:.3f}".format((time.time()-start)/60,loss)) # measure time
