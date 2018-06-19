@@ -8,7 +8,7 @@ import time
 # Settings
 data_path         = 'CO2/monthly_in_situ_co2_mlo.csv'
 save_path         = 'reg_params/params3'
-epochs            = 1000
+epochs            = 10
 minibatch_size    = 25
 mc_samples        = 20
 optimizer         = 'sgd'
@@ -19,7 +19,7 @@ drop_p            = 0.2
 tau_rc            = 0.07
 tau_ref           = 0.0005
 amplitude         = 0.05
-train             = False
+train             = True
 continue_training = False
 spiking           = False
 plot              = True

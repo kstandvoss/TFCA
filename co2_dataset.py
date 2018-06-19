@@ -55,7 +55,7 @@ def main(args):
     ens_params = dict(max_rates=nengo.dists.Choice([100]), intercepts=nengo.dists.Choice([0]))
 
 
-    def build_network(neuron_type, drop_p, l2_weight, n_units=1024, num_layers=5, output_size=1):
+    def build_network(neuron_type, drop_p, l2_weight, n_units=1024, num_layers=4, output_size=1):
         with nengo.Network() as net:
             
             use_dropout = False
@@ -85,12 +85,13 @@ def main(args):
                     DenseLayer.i+=1
 
                 def __call__(self, t, x):
+                    pdb.set_trace()
                     return x @ self.W + self.B
 
             
             for n in range(num_layers):
                 # add a fully connected layer
-                a = nengo_dl.TensorNode(DenseLayer(), size_in=shape_in, size_out=n_units)
+                a = nengo_dl.TensorNode(DenseLayer, size_in=shape_in, size_out=n_units)
                 nengo.Connection(x, a)
                 
                 shape_in = n_units
@@ -105,7 +106,7 @@ def main(args):
             
             
             # add an output layer
-            a = nengo_dl.TensorNode(DenseLayer(), size_in=shape_in, size_out=output_size)
+            a = nengo_dl.TensorNode(DenseLayer, size_in=shape_in, size_out=output_size)
             nengo.Connection(x, a)
 
             
@@ -205,7 +206,7 @@ def main(args):
         else:
             sim.load_params(path=param_path)
 
-        pdb.set_trace()
+        #pdb.set_trace()
         T = args.mc_samples
         outputs = np.zeros((T,target.size))
         for t in range(T):
