@@ -49,7 +49,7 @@ def main(args):
     lif_neurons = nengo.LIF(**lif_params)
 
     # softlif parameters (lif parameters + sigma)
-    softlif_neurons = nengo.RectifiedLinear()#nengo_dl.SoftLIFRate(**lif_params,sigma=0.002)
+    softlif_neurons = nengo_dl.SoftLIFRate(**lif_params,sigma=0.002)
 
     # ensemble parameters
     ens_params = dict(max_rates=nengo.dists.Choice([100]), intercepts=nengo.dists.Choice([0]))
@@ -73,7 +73,6 @@ def main(args):
             
             # the regularizer is a function, so why not reuse it
             reg = tf.contrib.layers.l2_regularizer(l2_weight)
-            
             class DenseLayer(object):
                 i=0
                 def pre_build(self, shape_in, shape_out):
@@ -85,18 +84,18 @@ def main(args):
                     DenseLayer.i+=1
 
                 def __call__(self, t, x):
-                    pdb.set_trace()
                     return x @ self.W + self.B
 
-            
+
             for n in range(num_layers):
                 # add a fully connected layer
-                a = nengo_dl.TensorNode(DenseLayer, size_in=shape_in, size_out=n_units)
-                nengo.Connection(x, a)
-                
+
+                a = nengo_dl.TensorNode(DenseLayer(), size_in=shape_in, size_out=n_units, label='dense{}'.format(n))
+                nengo.Connection(x, a, synapse=None)
+
                 shape_in = n_units
                 x = a
-                
+          
                 # apply an activation function
                 x = nengo_dl.tensor_layer(x, neuron_type, **ens_params)
 
@@ -106,8 +105,8 @@ def main(args):
             
             
             # add an output layer
-            a = nengo_dl.TensorNode(DenseLayer, size_in=shape_in, size_out=output_size)
-            nengo.Connection(x, a)
+            a = nengo_dl.TensorNode(DenseLayer(), size_in=shape_in, size_out=output_size)
+            nengo.Connection(x, a, synapse=None)
 
             
         return net, inp, a
@@ -132,7 +131,7 @@ def main(args):
     with net:
         in_p = nengo.Probe(inp, 'output')
         out_p = nengo.Probe(out, 'output')
-        
+
     """
     # define training set etc.
     """
@@ -154,7 +153,6 @@ def main(args):
         # tensorflow default graph to the nengo network.
         # That is, tf.get_collection won't work otherwise.)
         def mean_squared_error_L2_regularized(y, t):
-
             if not y.shape.as_list() == t.shape.as_list():
                 raise ValueError("Output shape", y.shape, "differs from target shape", t.shape)
             e = tf.reduce_mean((t - y)**2) + tf.add_n(tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
@@ -176,7 +174,6 @@ def main(args):
         starter_learning_rate = args.learning_rate
         learning_rate = tf.train.exponential_decay(starter_learning_rate, sim.tensor_graph.training_step,
                                            1000, 0.96, staircase=True)
-        
 
             # define optimiser  
         if args.optimizer=='rmsprop':
@@ -188,6 +185,7 @@ def main(args):
         elif args.optimizer=='adam':
             opt = tf.train.AdamOptimizer(learning_rate=learning_rate)
 
+        #pdb.set_trace()
         loss = 0
         # actual training loop
         if do_train:
@@ -206,13 +204,12 @@ def main(args):
         else:
             sim.load_params(path=param_path)
 
-        #pdb.set_trace()
+
         T = args.mc_samples
         outputs = np.zeros((T,target.size))
         for t in range(T):
             for i in range(0,target.size,minibatch_size):
                 sim.run_steps(1,input_feeds={inp: target[i:i+minibatch_size]})
-                #outputs[t,i:i+minibatch_size] = np.squeeze(sim.data[out_p])
                 sim.soft_reset(include_trainable=False, include_probes=False)
             outputs[t] = sim.data[out_p].transpose(1,0,2).reshape((len(target),))
             sim.soft_reset(include_trainable=False, include_probes=True)
