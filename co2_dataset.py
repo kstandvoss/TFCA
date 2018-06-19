@@ -49,8 +49,7 @@ def main(args):
     lif_neurons = nengo.LIF(**lif_params)
 
     # softlif parameters (lif parameters + sigma)
-    softlif_neurons = nengo_dl.SoftLIFRate(**lif_params,
-                                           sigma=0.002)
+    softlif_neurons = nengo.RectifiedLinear()#nengo_dl.SoftLIFRate(**lif_params,sigma=0.002)
 
     # ensemble parameters
     ens_params = dict(max_rates=nengo.dists.Choice([100]), intercepts=nengo.dists.Choice([0]))
@@ -109,7 +108,6 @@ def main(args):
             a = nengo_dl.TensorNode(DenseLayer(), size_in=shape_in, size_out=output_size)
             nengo.Connection(x, a)
 
-            tf.train.get_or_create_global_step()
             
         return net, inp, a
 
@@ -174,14 +172,10 @@ def main(args):
         weight_summary = tf.summary.scalar('sum_weights', sum_weights)        
 
 
-
-        global_step = tf.train.get_or_create_global_step()
         starter_learning_rate = args.learning_rate
-        learning_rate = tf.train.exponential_decay(starter_learning_rate, global_step,
-                                           10000, 0.96, staircase=False)
+        learning_rate = tf.train.exponential_decay(starter_learning_rate, sim.tensor_graph.training_step,
+                                           1000, 0.96, staircase=True)
         
-        init = tf.variables_initializer([global_step], name='init')
-        sim.sess.run(init)
 
             # define optimiser  
         if args.optimizer=='rmsprop':
@@ -211,13 +205,17 @@ def main(args):
         else:
             sim.load_params(path=param_path)
 
+        pdb.set_trace()
         T = args.mc_samples
         outputs = np.zeros((T,target.size))
         for t in range(T):
             for i in range(0,target.size,minibatch_size):
                 sim.run_steps(1,input_feeds={inp: target[i:i+minibatch_size]})
+                #outputs[t,i:i+minibatch_size] = np.squeeze(sim.data[out_p])
+                sim.soft_reset(include_trainable=False, include_probes=False)
             outputs[t] = sim.data[out_p].transpose(1,0,2).reshape((len(target),))
             sim.soft_reset(include_trainable=False, include_probes=True)
+            
 
         predictive_mean = np.mean(outputs, axis=0)
         predictive_variance = np.var(outputs, axis=0)   
