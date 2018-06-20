@@ -8,20 +8,20 @@ import time
 # Settings
 data_path         = 'CO2/monthly_in_situ_co2_mlo.csv'
 save_path         = 'reg_params/params3'
-epochs            = 5000
+epochs            = 10000
 minibatch_size    = 100
-mc_samples        = 20
+mc_samples        = 50
 optimizer         = 'adam'
-learning_rate     = 1e-2
+learning_rate     = 1e-1
 momentum          = 0.9
 l2_weight         = 1e-6
 drop_p            = 0.1
 tau_rc            = 0.07
 tau_ref           = 0.0005
 amplitude         = 0.01
-train             = True
-continue_training = False
-spiking           = False
+train             = False
+continue_training = True
+spiking           = True
 plot              = True
 comment           = 'test run'
 

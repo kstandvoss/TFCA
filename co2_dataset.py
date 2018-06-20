@@ -217,6 +217,8 @@ def main(args):
 
         predictive_mean = np.mean(outputs, axis=0)
         predictive_variance = np.var(outputs, axis=0)   
+        tau = (1 - args.drop_p) / (2 * len(predictive_variance) * args.l2_weight)
+        predictive_variance += tau**-1
 
         target = np.squeeze(target)
 
@@ -226,7 +228,8 @@ def main(args):
                 alpha=0.5, edgecolor='#CC4F1B', facecolor='#FF9848', linewidth=0, label='variance')
             plt.plot(target,detrended,label='target', color='blue',alpha=0.5)
             plt.axvline(x=x[300], c='black', lw='1')
-            plt.ylim([-20,20])
+            plt.ylim([-10,10])
+            plt.xlim([-2,2])
             plt.legend(loc='upper right')
 
 
@@ -234,9 +237,9 @@ def main(args):
     if args.spiking:
         # # test on LIF neurons
         # timesteps
-        #T = 50
         # MC dropout samples
         MC_drop = T
+        T = 100
 
         # we want to see if spiking neural networks
         # need dropout at all, so we disable it
@@ -247,7 +250,7 @@ def main(args):
 
             # start a new simulator
         # T is the amount of MC dropout samples
-        sim = nengo_dl.Simulator(net, minibatch_size=len(target))#, unroll_simulation=10, tensorboard='./tensorboard')
+        sim = nengo_dl.Simulator(net, minibatch_size=minibatch_size)#, unroll_simulation=10, tensorboard='./tensorboard')
 
         # load parameters
         sim.load_params(path=param_path)
@@ -255,43 +258,48 @@ def main(args):
         # copy the input for each MC dropout sample
         minibatched_target = np.tile(target[:, None], (1,T))[..., None]
 
-        sim.soft_reset(include_trainable=False, include_probes=True)
-
         # run for T timesteps
-        sim.run_steps(T, input_feeds={inp: minibatched_target})
-            
+        spiking_outputs = np.zeros((target.size,T))
+        spiking_inputs = np.zeros((target.size,T))
+        for i in range(0,target.size,minibatch_size):
+            sim.soft_reset(include_trainable=False, include_probes=True)
+            sim.run_steps(T,input_feeds={inp: minibatched_target[i:i+minibatch_size,:]})
+            spiking_outputs[i:i+minibatch_size] = sim.data[out_p][...,0]
+            spiking_inputs[i:i+minibatch_size] = sim.data[in_p][...,0]
+        
+
         if args.plot:
             # plot
             plt.figure() 
-            plt.scatter(sim.data[in_p].flatten(), sim.data[out_p].flatten(), c='r', s=1, label="output") 
+            plt.scatter(spiking_inputs.flatten(), spiking_outputs.flatten(), c='r', s=1, label="output") 
             plt.plot()
             #plt.plot(target.flatten(), y(target).flatten(), label="target", linewidth=2.0)
-            plt.legend(loc='upper left', bbox_to_anchor=(1.025, 1.025));
-            plt.plot(detrended, label='train set')
+            plt.legend(loc='upper right');
+            plt.plot(x,y, label='train set')
             plt.axvline(x=x[300], c='black', lw='1')
-            plt.ylim([-20,20])
-            #plt.xlim([0,500]);
+            plt.ylim([-10,10])
+            plt.xlim([-2,2])
 
 
             # print(sim.data[out_p].shape)
-            predictive_mean = np.squeeze(np.mean(sim.data[out_p][:, -MC_drop:, :], axis=1))
-            predictive_variance = np.squeeze(np.var(sim.data[out_p][:, -MC_drop:, :], axis=1))
+            predictive_mean = np.mean(spiking_outputs[:,-MC_drop:],axis=1)
+            predictive_variance = np.var(spiking_outputs[:,-MC_drop:],axis=1)
+            tau = (1 - args.drop_p) / (2 * len(predictive_variance) * args.l2_weight)
+            predictive_variance += tau**-1
 
 
-            plt.figure(figsize=(20, 10))
+
+            plt.figure()
             plt.plot(target,predictive_mean,label='out')
             #plt.plot(target,spiking_outputs[:,-1],label='out')
-            plt.fill_between(target, predictive_mean-predictive_variance, predictive_mean+predictive_variance,
+            plt.fill_between(np.squeeze(target), predictive_mean-2*np.sqrt(predictive_variance), predictive_mean+2*np.sqrt(predictive_variance),
                 alpha=0.5, edgecolor='#CC4F1B', facecolor='#FF9848', linewidth=0, label='variance')
-            plt.plot(x, y, c='green', label='dataset')
-            plt.scatter(x,y, color='black', s=9, label='train set')
-
-            plt.axvline(x=300, c='black', lw='1')
-
-            plt.legend(loc='upper left', bbox_to_anchor=(1.025, 1.025))
-            plt.ylim([-20,20])
+            plt.plot(x, y, c='blue', alpha=0.5, label='dataset')
+            #plt.scatter(x,y, color='black', s=9, label='train set')
             plt.axvline(x=x[300], c='black', lw='1')
-            #plt.xlim([0,500])
+            plt.legend(loc='upper right',)
+            plt.ylim([-10,10])
+            plt.xlim([-2,2])
     
         sim.close()
     if args.plot:
